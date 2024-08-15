@@ -51,12 +51,6 @@ This script is provided "as-is" without any warranties or guarantees of any kind
    ```bash
    git clone https://github.com/yourusername/Wildix-EntraID-Profile-Picture-Importer.git
    cd Wildix-EntraID-Profile-Picture-Importer
-
    
-### Hinweise:
-- Der Codeblock für die Powershell-Befehle und die Bash-Befehle wurde korrekt im Markdown-Format eingebettet.
-- Der Haftungsausschluss wurde im Abschnitt "Disclaimer" hinzugefügt, um klarzustellen, dass die Nutzung des Skripts auf eigene Gefahr erfolgt.
-- Der Copyright-Hinweis wurde am Ende der Datei ergänzt.
-
-Diese Datei kannst du nun direkt in dein `readme.md`-Dokument einfügen und in deinem Repository verwenden. Wenn du noch weitere Änderungen benötigst, lass es mich wissen!
-
+## Copyright
+© 2024 [Indeno GmbH](https://indeno.at). All rights reserved.

@@ -49,7 +49,7 @@ This script is provided "as-is" without any warranties or guarantees of any kind
 1. **Clone the Repository:**
 
    ```bash
-   git clone https://github.com/yourusername/Wildix-EntraID-Profile-Picture-Importer.git
+   git clone https://github.com/indenogmbh/Wildix-EntraID-Profile-Picture-Importer.git
    cd Wildix-EntraID-Profile-Picture-Importer
    
 ## Copyright

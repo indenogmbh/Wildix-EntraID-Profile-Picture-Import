@@ -14,14 +14,23 @@ function Ensure-Module {
 }
 
 # Ensure necessary modules are installed and imported
-$requiredModules = @("Az.Accounts", "Az.Storage", "Microsoft.Graph")
+$requiredModules = @("Az.Accounts", "Az.Storage", "Microsoft.Graph.Authentication", "Microsoft.Graph.Users")
 
 foreach ($module in $requiredModules) {
     Ensure-Module -ModuleName $module
 }
 
-# Authenticate with Microsoft Graph
-Connect-MgGraph -Scopes "ProfilePhoto.ReadWrite.All, User.Read.All, User.ReadWrite.All"
+# Disable WAM-based login for Azure
+Update-AzConfig -EnableLoginByWam $false
+
+# Authenticate with Microsoft Graph (only required scopes)
+try {
+    Connect-MgGraph -Scopes "User.Read.All", "ProfilePhoto.Read.All" -ErrorAction Stop
+    Write-Host "Successfully authenticated with Microsoft Graph."
+} catch {
+    Write-Host "Error: Failed to authenticate with Microsoft Graph. Exiting script."
+    exit
+}
 
 # Directory for temporary storage of profile pictures in the system's Temp directory
 $profilePicFolder = [System.IO.Path]::Combine($env:TEMP, "ProfilePictures")
@@ -33,12 +42,6 @@ if (-not (Test-Path -Path $profilePicFolder)) {
 $storageAccountName = Read-Host "Please enter the Azure Storage Account name"
 $resourceGroupName = Read-Host "Please enter the Resource Group name"
 $containerName = Read-Host "Please enter the Blob Container name (e.g., 'profilepictures')"
-
-# Prompt the user for the folder name inside the Blob container (default: 'profilepictures')
-$blobFolderName = Read-Host "Please enter the folder name inside the Blob container (default: 'profilepictures')" 
-if (-not $blobFolderName) {
-    $blobFolderName = "profilepictures"
-}
 
 # Authenticate with Azure and get the Storage Account context
 Connect-AzAccount
@@ -56,16 +59,16 @@ if (-not $container) {
     Write-Host "Blob container '$containerName' already exists."
 }
 
-# Generate a SAS token for the folder in the Blob container
+# Generate a SAS token for the Blob container
 $expiryDate = (Get-Date).AddYears(15)
 $sasToken = New-AzStorageContainerSASToken -Context $ctx -Name $containerName -Permission r -ExpiryTime $expiryDate -Protocol HttpsOnly
 
 Write-Host "SAS token generated: $sasToken"
 
-# Retrieve all users from Entra ID (Azure AD)
-$users = Get-MgUser -All
+# Retrieve all cloud users from Entra ID (Azure AD), filtering to only include members
+$users = Get-MgUser -All -Filter "UserType eq 'Member'" -ConsistencyLevel eventual -CountVariable CountVar
 
-# Loop through all users and process their profile pictures
+# Loop through all filtered users and process their profile pictures
 foreach ($user in $users) {
     $upn = $user.UserPrincipalName
     Write-Host "Processing user: $upn"
@@ -76,8 +79,8 @@ foreach ($user in $users) {
         Get-MgUserPhotoContent -UserId $user.Id -outfile $photoPath -ErrorAction Stop
         Write-Host "Profile picture saved: $photoPath"
 
-        # Upload the image to the specified Azure Blob folder
-        $blobPath = "$blobFolderName/$upn.jpg"
+        # Upload the image directly to the Azure Blob container
+        $blobPath = "$upn.jpg"
         $blob = Set-AzStorageBlobContent -File $photoPath -Container $containerName -Blob $blobPath -Context $ctx -ErrorAction Stop
         Write-Host "Profile picture uploaded to Azure Blob: $blobPath"
 
@@ -100,21 +103,21 @@ if (-not $csvPath) {
     $csvPath = $defaultCsvPath
 }
 
-# Base URL for the Azure Storage Blob (without file name and without SAS token)
-$baseUrl = "https://$($storageAccountName).blob.core.windows.net/$containerName/$blobFolderName"
+# Base URL for the Azure Storage Blob (without file name)
+$baseUrl = "https://$($storageAccountName).blob.core.windows.net/$containerName"
 
 # List to store UPNs and URLs
 $filesAndUrls = @()
 
-# Retrieve all blobs in the specified folder
-$blobs = Get-AzStorageBlob -Container $containerName -Context $ctx | Where-Object { $_.Name -like "$blobFolderName/*" }
+# Retrieve all blobs in the container
+$blobs = Get-AzStorageBlob -Container $containerName -Context $ctx
 
 foreach ($blob in $blobs) {
     $fileNameWithoutExtension = [System.IO.Path]::GetFileNameWithoutExtension($blob.Name)
     
     # Replace "@" with "%40" in the blob name part of the URL only
     $encodedBlobName = $blob.Name -replace "@", "%40"
-    $fullUrl = "$baseUrl/$encodedBlobName" + $sasToken
+    $fullUrl = "$baseUrl/$encodedBlobName?$sasToken"
 
     # Create object with UPN and URL
     $obj = [PSCustomObject]@{

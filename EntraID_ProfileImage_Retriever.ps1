@@ -93,6 +93,44 @@ foreach ($user in $users) {
     }
 }
 
+# Prompt user for CSV output path, default is the current script directory
+$defaultCsvPath = [System.IO.Path]::Combine((Get-Location).Path, "profile_picture_urls.csv")
+$csvPath = Read-Host "Please enter the output path for the CSV file (default: $defaultCsvPath)"
+if (-not $csvPath) {
+    $csvPath = $defaultCsvPath
+}
+
+# Base URL for the Azure Storage Blob (without file name and without SAS token)
+$baseUrl = "https://$($storageAccountName).blob.core.windows.net/$containerName/$blobFolderName"
+
+# List to store UPNs and URLs
+$filesAndUrls = @()
+
+# Retrieve all blobs in the specified folder
+$blobs = Get-AzStorageBlob -Container $containerName -Context $ctx | Where-Object { $_.Name -like "$blobFolderName/*" }
+
+foreach ($blob in $blobs) {
+    $fileNameWithoutExtension = [System.IO.Path]::GetFileNameWithoutExtension($blob.Name)
+    
+    # Replace "@" with "%40" in the blob name part of the URL only
+    $encodedBlobName = $blob.Name -replace "@", "%40"
+    $fullUrl = "$baseUrl/$encodedBlobName" + $sasToken
+
+    # Create object with UPN and URL
+    $obj = [PSCustomObject]@{
+        UPN = $fileNameWithoutExtension
+        URL = $fullUrl
+    }
+
+    # Add the object to the list
+    $filesAndUrls += $obj
+}
+
+# Write the CSV file
+$filesAndUrls | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8
+
+Write-Host "CSV file has been successfully created: $csvPath"
+
 # Disconnect from Microsoft Graph and Azure
 Disconnect-MgGraph
 Disconnect-AzAccount

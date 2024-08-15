@@ -1,4 +1,4 @@
-# Wildix EntraID Profile Picture Importer
+# Wildix EntraID Profile Picture Importing
 
 This repository provides a comprehensive solution for importing user profile pictures from Entra ID (Azure AD) into Wildix telephony systems. The solution consists of two PowerShell scripts that automate the process of retrieving profile images, securely storing them in Azure Storage, and matching them to Wildix users.
 

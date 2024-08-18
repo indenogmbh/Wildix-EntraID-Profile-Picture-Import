@@ -16,15 +16,15 @@ $updated_target = @()
 # Iterate through the rows of the target file
 foreach ($target_row in $target) {
     # Find the matching row in the source file based on UPN and Email
-    $matching_row = $source | Where-Object { $_.UPN -eq $target_row.Email }
+    $matching_row = $source | Where-Object { $_.UPN -eq $target_row."Email" }
     
     # If a matching row is found
     if ($matching_row) {
         # Clear the existing value in the ImageURL column
-        $target_row.ImageURL = ""
+        $target_row."ImageURL" = ""
         
         # Insert the new value from the URL column of the source file
-        $target_row.ImageURL = $matching_row.URL
+        $target_row."ImageURL" = $matching_row.URL
     }
 
     # Add the (possibly updated) row to the new list
